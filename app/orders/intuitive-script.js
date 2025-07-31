@@ -1,8 +1,7 @@
 (function() {
   'use strict';
 
-  // --- 設定項目 ---
-  // スキーマからフィールドコードを指定
+  // --- 設定項目 (変更なし) ---
   const SUBTABLE_CODE = 'テーブル';
   const QUANTITY_CODE = '数値_数量';
   const UNIT_PRICE_CODE = '数値_単価';
@@ -16,11 +15,10 @@
   /**
    * すべての金額を再計算する関数
    */
-  const calculateAll = (record) => {
+  const calculateAll = (record) => { // 引数でレコード情報を受け取る
     let subtotal = 0;
     const tableRows = record[SUBTABLE_CODE].value;
 
-    // 1. 各行の金額を計算し、伝票合計を算出
     tableRows.forEach(row => {
       const quantity = parseFloat(row.value[QUANTITY_CODE].value) || 0;
       const unitPrice = parseFloat(row.value[UNIT_PRICE_CODE].value) || 0;
@@ -30,24 +28,23 @@
       subtotal += rowAmount;
     });
 
-    // 2. 伝票合計、消費税額、税込合計を計算
     const taxRate = parseFloat(record[TAX_RATE_CODE].value) || 0;
-    const taxAmount = Math.floor(subtotal * (taxRate / 100)); // スキーマのROUNDDOWNに合わせて切り捨て
+    const taxAmount = Math.floor(subtotal * (taxRate / 100));
     const grandTotal = subtotal + taxAmount;
 
-    // 3. レコードの各フィールドに計算結果をセット
+    // 引数で受け取ったrecordオブジェクトの値を直接更新する
     record[SUBTOTAL_CODE].value = subtotal;
     record[TAX_AMOUNT_CODE].value = taxAmount;
     record[GRAND_TOTAL_CODE].value = grandTotal;
 
-    return kintone.app.record.get(); // 更新されたレコードオブジェクトを返す
+    // ★★★ 修正点1: return文を削除 ★★★
+    // この関数内でrecordオブジェクトを直接変更すればよいため、値を返す必要はありません。
   };
 
   /**
-   * UIの見た目を調整する関数
+   * UIの見た目を調整する関数 (変更なし)
    */
   const applyModernUI = () => {
-    // CSSでスタイリングするためのカスタムクラスを追加
     const customerField = kintone.app.record.getFieldElement(CUSTOMER_NAME_CODE);
     if (customerField) customerField.closest('.field-SgCtJMMM').classList.add('custom-customer-name', 'custom-header-area');
 
@@ -61,8 +58,7 @@
     }
   };
 
-
-  // レコード追加・編集画面で実行するイベント
+  // レコード追加・編集画面で実行するイベント (変更なし)
   const eventsOnEdit = [
     'app.record.create.show',
     'app.record.edit.show',
@@ -72,24 +68,25 @@
     'app.record.edit.change.' + UNIT_PRICE_CODE,
     'app.record.create.change.' + TAX_RATE_CODE,
     'app.record.edit.change.' + TAX_RATE_CODE,
-    'app.record.create.change.' + SUBTABLE_CODE, // 行の追加・削除を検知
+    'app.record.create.change.' + SUBTABLE_CODE,
     'app.record.edit.change.' + SUBTABLE_CODE,
   ];
 
   kintone.events.on(eventsOnEdit, (event) => {
-    // 画面表示時にUIを調整
     if (event.type.endsWith('.show')) {
       applyModernUI();
     }
     
-    // フィールド値が変更されたらリアルタイム計算を実行
-    const currentRecord = kintone.app.record.get().record;
-    calculateAll(currentRecord);
+    // ★★★ 修正点2: event.record を使用 ★★★
+    // kintone.app.record.get() の代わりに、引数の event.record を使います。
+    const record = event.record;
+    calculateAll(record);
 
+    // 最後に event を return すると、record に加えた変更が画面に反映されます。
     return event;
   });
 
-  // レコード詳細画面で実行するイベント
+  // レコード詳細画面で実行するイベント (変更なし)
   kintone.events.on('app.record.detail.show', (event) => {
     applyModernUI();
     // 詳細画面では計算フィールドを読み取り専用に見せる
