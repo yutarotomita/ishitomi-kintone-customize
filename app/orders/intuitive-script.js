@@ -16,33 +16,27 @@
   const GRAND_TOTAL_CODE = '税込合計';
 
   // --- ② リアルタイムサジェスト機能のフィールドコード ---
-  const SUGGEST_SOURCE_APP_ID = 2; //取引先マスタアプリのID
-  const SUGGEST_SEARCH_TEXT_CODE = 'customer_search'; // 検索キーワードを入力するフィールド
-  const SUGGEST_SEARCH_TARGET_CODE = '文字列__1行_得意先名１'; // 検索したいフィールドコード
-  const SUGGEST_LOOKUP_FIELD_CODE = 'ルックアップ_取引名'; // 検索結果を反映させるルックアップフィールド
-  const SUGGEST_SPACE_CODE = 'suggestion_space'; // サジェストを表示するスペースフィールド
+  const SUGGEST_SOURCE_APP_ID = 2; // ★★★【重要】あなたの取引先マスタアプリのIDに変更してください ★★★
+  const SUGGEST_LOOKUP_FIELD_CODE = 'ルックアップ_取引名'; // サジェスト機能を使うルックアップフィールド
+  const SUGGEST_SEARCH_TARGET_CODE = '文字列__1行_得意先名１'; // ★★★ 検索対象のフィールドコード（取引先マスタ側）に変更してください ★★★
 
   // --- ③ UI調整用のフィールドコード ---
   const CUSTOMER_NAME_CODE = 'ルックアップ_取引名';
 
-
   // =================================================================
   // --- グローバル変数 ---
   // =================================================================
-  let typingTimer; // サジェスト機能のタイマー
-
+  let typingTimer;
+  let suggestionContainer; // サジェスト表示用のDIV要素を保持する変数
 
   // =================================================================
   // --- 関数定義 ---
   // =================================================================
 
-  /**
-   * (計算機能) すべての金額を再計算する関数
-   */
+  // (計算機能) ... 変更なし ...
   const calculateAll = (record) => {
     let subtotal = 0;
     const tableRows = record[SUBTABLE_CODE].value;
-
     tableRows.forEach(row => {
       const quantity = parseFloat(row.value[QUANTITY_CODE].value) || 0;
       const unitPrice = parseFloat(row.value[UNIT_PRICE_CODE].value) || 0;
@@ -50,128 +44,151 @@
       row.value[ROW_AMOUNT_CODE].value = rowAmount;
       subtotal += rowAmount;
     });
-
     const taxRate = parseFloat(record[TAX_RATE_CODE].value) || 0;
     const taxAmount = Math.floor(subtotal * (taxRate / 100));
     const grandTotal = subtotal + taxAmount;
-
     record[SUBTOTAL_CODE].value = subtotal;
     record[TAX_AMOUNT_CODE].value = taxAmount;
     record[GRAND_TOTAL_CODE].value = grandTotal;
   };
 
-  /**
-   * (UI調整) モダンなUIを適用する関数
-   */
+  // (UI調整) ... 変更なし ...
   const applyModernUI = () => {
     const customerField = kintone.app.record.getFieldElement(CUSTOMER_NAME_CODE);
     if (customerField) customerField.closest('.field-SgCtJMMM').classList.add('custom-customer-name', 'custom-header-area');
-
     const grandTotalField = kintone.app.record.getFieldElement(GRAND_TOTAL_CODE);
     if (grandTotalField) grandTotalField.closest('.field-SgCtJMMM').classList.add('custom-grand-total');
-
     const subtotalField = kintone.app.record.getFieldElement(SUBTOTAL_CODE);
     if (subtotalField) {
       const summaryArea = subtotalField.closest('.field-SgCtJMMM').parentElement;
-      if(summaryArea) summaryArea.classList.add('custom-summary-area');
+      if (summaryArea) summaryArea.classList.add('custom-summary-area');
     }
   };
 
   /**
    * (サジェスト機能) 検索を実行してサジェストを表示する関数
    */
-  const fetchAndShowSuggestions = (keyword) => {
-    const suggestionElement = kintone.app.record.getSpaceElement(SUGGEST_SPACE_CODE);
-    if (!suggestionElement) return;
+  const fetchAndShowSuggestions = (keyword, container) => {
     if (!keyword) {
-      suggestionElement.innerHTML = '';
+      container.style.display = 'none';
       return;
     }
-
     kintone.api(kintone.api.url('/k/v1/records', true), 'GET', {
       app: SUGGEST_SOURCE_APP_ID,
-      query: `${SUGGEST_SEARCH_TARGET_CODE} like "${keyword}" limit 10`,
-      fields: [SUGGEST_SEARCH_TARGET_CODE, '$id']
+      query: `${SUGGEST_SEARCH_TARGET_CODE} like "${keyword}" order by $id desc limit 10`,
+      fields: [SUGGEST_SEARCH_TARGET_CODE]
     }).then(resp => {
-      let suggestionsHtml = '<ul style="list-style:none; margin:0; padding:5px; border:1px solid #e3e3e3; background-color:white; position:absolute; z-index:10; width:100%;">';
+      let suggestionsHtml = '';
       if (resp.records.length > 0) {
         resp.records.forEach(record => {
           const suggestionText = record[SUGGEST_SEARCH_TARGET_CODE].value;
-          suggestionsHtml += `<li class="suggestion-item" data-lookup-value="${suggestionText}" style="padding:8px 12px; cursor:pointer; border-bottom: 1px solid #f1f1f1;">${suggestionText}</li>`;
+          suggestionsHtml += `<li class="suggestion-item" data-lookup-value="${suggestionText}">${suggestionText}</li>`;
         });
       } else {
-        suggestionsHtml += '<li style="padding:8px 12px; color:#888;">候補が見つかりません</li>';
+        suggestionsHtml += '<li class="suggestion-item-none">候補が見つかりません</li>';
       }
-      suggestionsHtml += '</ul>';
-      suggestionElement.innerHTML = suggestionsHtml;
+      container.innerHTML = `<ul>${suggestionsHtml}</ul>`;
+      container.style.display = 'block';
 
+      // 候補クリック時のイベント設定
       document.querySelectorAll('.suggestion-item').forEach(item => {
         item.addEventListener('click', (e) => {
           const selectedValue = e.target.getAttribute('data-lookup-value');
           const record = kintone.app.record.get().record;
           record[SUGGEST_LOOKUP_FIELD_CODE].value = selectedValue;
-          kintone.app.record.set({ record }); // レコードを更新してルックアップを実行
-          suggestionElement.innerHTML = '';
+          kintone.app.record.set({ record });
+          container.style.display = 'none';
         });
       });
     }).catch(err => {
-      console.error('Suggestion fetch error:', err);
-      suggestionElement.innerHTML = '<div style="color:red; padding:8px;">検索エラー</div>';
+      console.error('サジェスト機能でエラーが発生しました:', err);
+      container.innerHTML = '<ul><li class="suggestion-item-error">検索エラー</li></ul>';
+      container.style.display = 'block';
     });
   };
 
+  /**
+   * (サジェスト機能) サジェスト表示用の要素を作成・セットアップする関数
+   */
+  const setupSuggestionFeature = () => {
+    const lookupFieldElement = kintone.app.record.getFieldElement(SUGGEST_LOOKUP_FIELD_CODE);
+    if (!lookupFieldElement) {
+      console.log('サジェスト用のルックアップフィールドが見つかりません。');
+      return;
+    }
+
+    // ルックアップフィールド内の入力ボックスを取得
+    const inputElement = lookupFieldElement.querySelector('input[type="text"]');
+    if (!inputElement) {
+      console.log('ルックアップ内の入力ボックスが見つかりません。');
+      return;
+    }
+
+    // サジェスト表示用のDIVを一度だけ作成
+    if (!suggestionContainer) {
+      suggestionContainer = document.createElement('div');
+      suggestionContainer.id = 'custom-suggestion-container';
+      // スタイルを直接設定
+      suggestionContainer.style.position = 'absolute';
+      suggestionContainer.style.border = '1px solid #e3e3e3';
+      suggestionContainer.style.backgroundColor = 'white';
+      suggestionContainer.style.zIndex = '2000'; // 他の要素より手前に表示
+      suggestionContainer.style.display = 'none'; // 初期状態は非表示
+      suggestionContainer.style.listStyle = 'none';
+      suggestionContainer.style.margin = '0';
+      suggestionContainer.style.padding = '0';
+      // CSSで細かいスタイルを指定したい場合は以下のようにクラスを付与
+      // suggestionContainer.className = 'my-suggestion-box';
+
+      document.body.appendChild(suggestionContainer);
+
+      // 他の場所をクリックしたらサジェストを閉じる
+      document.addEventListener('click', (e) => {
+        if (!lookupFieldElement.contains(e.target)) {
+          suggestionContainer.style.display = 'none';
+        }
+      });
+    }
+
+    // 入力ボックスのキー入力イベント
+    inputElement.addEventListener('keyup', () => {
+      // 位置とサイズを調整
+      const rect = inputElement.getBoundingClientRect();
+      suggestionContainer.style.top = `${rect.bottom + window.scrollY}px`;
+      suggestionContainer.style.left = `${rect.left + window.scrollX}px`;
+      suggestionContainer.style.width = `${rect.width}px`;
+      
+      clearTimeout(typingTimer);
+      typingTimer = setTimeout(() => {
+        fetchAndShowSuggestions(inputElement.value, suggestionContainer);
+      }, 500);
+    });
+  };
 
   // =================================================================
   // --- kintone イベントハンドラ ---
   // =================================================================
-
-  // --- レコード追加・編集画面のイベント ---
   const eventsOnEdit = [
-    'app.record.create.show',
-    'app.record.edit.show',
-    'app.record.create.change.' + QUANTITY_CODE,
-    'app.record.edit.change.' + QUANTITY_CODE,
-    'app.record.create.change.' + UNIT_PRICE_CODE,
-    'app.record.edit.change.' + UNIT_PRICE_CODE,
-    'app.record.create.change.' + TAX_RATE_CODE,
-    'app.record.edit.change.' + TAX_RATE_CODE,
-    'app.record.create.change.' + SUBTABLE_CODE,
-    'app.record.edit.change.' + SUBTABLE_CODE,
+    'app.record.create.show', 'app.record.edit.show',
+    'app.record.create.change.' + QUANTITY_CODE, 'app.record.edit.change.' + QUANTITY_CODE,
+    'app.record.create.change.' + UNIT_PRICE_CODE, 'app.record.edit.change.' + UNIT_PRICE_CODE,
+    'app.record.create.change.' + TAX_RATE_CODE, 'app.record.edit.change.' + TAX_RATE_CODE,
+    'app.record.create.change.' + SUBTABLE_CODE, 'app.record.edit.change.' + SUBTABLE_CODE,
   ];
 
   kintone.events.on(eventsOnEdit, (event) => {
-    // --- 画面表示時の処理 ---
     if (event.type.endsWith('.show')) {
-      // ① UI調整を実行
       applyModernUI();
-
-      // ② サジェスト機能の入力欄を設定
-      const searchElement = kintone.app.record.getFieldElement(SUGGEST_SEARCH_TEXT_CODE);
-      if (searchElement) {
-        searchElement.style.position = 'relative'; // サジェスト表示位置の基準とする
-        const inputElement = searchElement.querySelector('input');
-        if (inputElement) {
-          inputElement.addEventListener('keyup', () => {
-            clearTimeout(typingTimer);
-            typingTimer = setTimeout(() => fetchAndShowSuggestions(inputElement.value), 500);
-          });
-        }
-      }
+      setupSuggestionFeature(); // ★★★ 新しいサジェスト機能のセットアップを実行
     }
-
-    // --- フィールド変更時の処理 ---
-    // ③ リアルタイム計算を実行
     calculateAll(event.record);
-
     return event;
   });
 
-  // --- レコード詳細画面のイベント ---
   kintone.events.on('app.record.detail.show', (event) => {
     applyModernUI();
     kintone.app.record.setFieldShown(ROW_AMOUNT_CODE, false);
     kintone.app.record.setFieldShown(ROW_AMOUNT_CODE, true);
     return event;
   });
-
 })();
