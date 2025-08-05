@@ -66,11 +66,142 @@
   
   // processHistoryData, buildAndShowDialog, addItemToSubtable の各関数は変更ありません
   // （以下、前回の回答と同じコード）
-  const processHistoryData=(records)=>{const t=new Map;return records.forEach(e=>{const o=new Date(e.作成日時.value).toLocaleDateString();e[SUBTABLE_CODE]&&e[SUBTABLE_CODE].value&&e[SUBTABLE_CODE].value.forEach(e=>{const r=e.value,c=r.ルックアップ_商品番号.value;t.has(c)||t.set(c,{orderDate:o,productCode:c,productName:r.文字列__1行_商品名.value,unit:r.文字列__1行__単位.value,price:r.数値_単価.value,description:r.文字列__1行_摘要.value})})}),Array.from(t.values())};
-  const buildAndShowDialog=(historyData)=>{const t=document.querySelector(".custom-lookup-overlay");t&&t.remove();let e="";historyData.forEach(t=>{e+=`\n        <tr>\n          <td>\n            <button class="select-history-item-btn" \n              data-product-code="${t.productCode}"\n              data-product-name="${t.productName}"\n              data-unit="${t.unit}"\n              data-price="${t.price}"\n              data-description="${t.description}"\n            >選択</button>\n          </td>\n          <td>${t.orderDate}</td>\n          <td>${t.productName}</td>\n          <td>${Number(t.price).toLocaleString()} 円</td>\n        </tr>\n      `});const o=`\n      <div class="custom-lookup-dialog">\n        <div class="custom-lookup-header">\n          <span>受注履歴から商品を選択</span>\n          <button class="custom-lookup-close">&times;</button>\n        </div>\n        <div class="custom-lookup-body">\n          <table class="custom-lookup-table">\n            <thead>\n              <tr>\n                <th>選択</th>\n                <th>最終受注日</th>\n                <th>商品名</th>\n                <th>単価</th>\n              </tr>\n            </thead>\n            <tbody>\n              ${e}\n            </tbody>\n          </table>\n        </div>\n      </div>\n    `,r=document.createElement("div");r.className="custom-lookup-overlay",r.innerHTML=o,document.body.appendChild(r),r.querySelector(".custom-lookup-close").onclick=()=>r.remove(),r.onclick=t=>{t.target===r&&r.remove()},r.querySelectorAll(".select-history-item-btn").forEach(t=>{t.onclick=e=>{addItemToSubtable(e.target.dataset),r.remove()}})};
-  const addItemToSubtable=(itemData)=>{const t=kintone.app.record.get(),e=t.record[SUBTABLE_CODE].value;e.push({value:{"ルックアップ_商品番号":{value:itemData.productCode},"文字列__1行_商品名":{value:itemData.productName},"文字列__1行__単位":{value:itemData.unit},"数値_単価":{value:itemData.price},"文字列__1行_摘要":{value:itemData.description},"数値_数量":{value:1}}}),kintone.app.record.set(t)};
+  /**
+   * APIで取得したレコードから、重複を除いた最新の商品リストを作成する
+   * @param {Array} records APIから取得したレコード配列
+   * @returns {Array} 重複排除・整形済みの商品リスト
+   */
+  const processHistoryData = (records) => {
+    const productMap = new Map();
 
-  // --- kintone イベントハンドラ ---
+    // 全てのレコードのサブテーブルを走査
+    records.forEach(record => {
+      const orderDate = new Date(record.作成日時.value).toLocaleDateString();
+      if (!record[SUBTABLE_CODE] || !record[SUBTABLE_CODE].value) return;
+
+      record[SUBTABLE_CODE].value.forEach(subtableRow => {
+        const item = subtableRow.value;
+        const productCode = item.ルックアップ_商品番号.value;
+
+        // まだマップにない商品コードの場合のみ追加（これで最新履歴が残る）
+        if (!productMap.has(productCode)) {
+          productMap.set(productCode, {
+            orderDate: orderDate,
+            productCode: productCode,
+            productName: item.文字列__1行_商品名.value,
+            unit: item.文字列__1行__単位.value,
+            price: item.数値_単価.value,
+            description: item.文字列__1行_摘要.value
+          });
+        }
+      });
+    });
+
+    return Array.from(productMap.values());
+  };
+
+  /**
+   * 履歴データからダイアログを組み立てて表示する
+   * @param {Array} historyData 表示する履歴データの配列
+   */
+  const buildAndShowDialog = (historyData) => {
+    // 既存のダイアログがあれば削除
+    const existingDialog = document.querySelector('.custom-lookup-overlay');
+    if (existingDialog) existingDialog.remove();
+
+    // HTMLを生成
+    let tableRowsHtml = '';
+    historyData.forEach(item => {
+      tableRowsHtml += `
+        <tr>
+          <td>
+            <button class="select-history-item-btn" 
+              data-product-code="${item.productCode}"
+              data-product-name="${item.productName}"
+              data-unit="${item.unit}"
+              data-price="${item.price}"
+              data-description="${item.description}"
+            >選択</button>
+          </td>
+          <td>${item.orderDate}</td>
+          <td>${item.productName}</td>
+          <td>${Number(item.price).toLocaleString()} 円</td>
+        </tr>
+      `;
+    });
+
+    const dialogHtml = `
+      <div class="custom-lookup-dialog">
+        <div class="custom-lookup-header">
+          <span>受注履歴から商品を選択</span>
+          <button class="custom-lookup-close">&times;</button>
+        </div>
+        <div class="custom-lookup-body">
+          <table class="custom-lookup-table">
+            <thead>
+              <tr>
+                <th>選択</th>
+                <th>最終受注日</th>
+                <th>商品名</th>
+                <th>単価</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${tableRowsHtml}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+
+    // ダイアログをページに追加
+    const overlay = document.createElement('div');
+    overlay.className = 'custom-lookup-overlay';
+    overlay.innerHTML = dialogHtml;
+    document.body.appendChild(overlay);
+
+    // 閉じるボタンのイベント
+    overlay.querySelector('.custom-lookup-close').onclick = () => overlay.remove();
+    // 背景クリックで閉じる
+    overlay.onclick = (e) => {
+      if (e.target === overlay) {
+        overlay.remove();
+      }
+    };
+
+    // 選択ボタンのイベント
+    overlay.querySelectorAll('.select-history-item-btn').forEach(btn => {
+      btn.onclick = (e) => {
+        addItemToSubtable(e.target.dataset);
+        overlay.remove(); // 選択したらダイアログを閉じる
+      };
+    });
+  };
+
+  /**
+   * 選択した商品をサブテーブルに追加する
+   * @param {Object} itemData data属性から取得した商品データ
+   */
+  const addItemToSubtable = (itemData) => {
+    const currentRecord = kintone.app.record.get();
+    const subtable = currentRecord.record[SUBTABLE_CODE].value;
+
+    const newRow = {
+      value: {
+        'ルックアップ_商品番号': { value: itemData.productCode },
+        '文字列__1行_商品名': { value: itemData.productName },
+        '文字列__1行__単位': { value: itemData.unit },
+        '数値_単価': { value: itemData.price },
+        '文字列__1行_摘要': { value: itemData.description },
+        '数値_数量': { value: 1 }, // 数量はデフォルトで1を設定
+      }
+    };
+
+    subtable.push(newRow);
+    kintone.app.record.set(currentRecord);
+  };
+  
+// --- kintone イベントハンドラ ---
   const events = [
     'app.record.create.show',
     'app.record.edit.show',
