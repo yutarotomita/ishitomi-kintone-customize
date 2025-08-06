@@ -1,26 +1,30 @@
 (function() {
   'use strict';
 
+  // =================================================================
   // --- 設定項目 ---
+  // =================================================================
+
   const HISTORY_APP_ID = 5; // 履歴を検索するアプリ（受注アプリ自身）のID
   const CUSTOMER_FIELD = 'ルックアップ_取引名'; // 取引先名フィールドのコード
   const SUBTABLE_CODE = 'テーブル'; // 追加対象のサブテーブルのコード
   const DISPLAY_SPACE_ID = 'history_display_space'; // 履歴表示用のスペースの要素ID
 
+  // =================================================================
+  // --- 関数定義 ---
+  // =================================================================
+
   /**
    * 履歴を取得してスペースに表示するメインの関数
    */
-  const showHistoryList = () => {
-    const currentRecord = kintone.app.record.get().record;
-    const customerName = currentRecord[CUSTOMER_FIELD].value;
+  const showHistoryList = (record) => {
+    const customerName = record[CUSTOMER_FIELD].value;
     const displaySpaceEl = kintone.app.record.getSpaceElement(DISPLAY_SPACE_ID);
 
     if (!displaySpaceEl) {
-      // スペースがフォームに配置されていない場合は何もしない
       return; 
     }
 
-    // 取引先名が空欄になった場合は、履歴表示をクリアする
     if (!customerName) {
       displaySpaceEl.innerHTML = '';
       return;
@@ -106,7 +110,7 @@
     const newRow = {
       value: {
         'ルックアップ_商品番号': { type: 'NUMBER', value: productCode, lookup: true },
-        '数値_数量': { type: 'NUMBER', value: null },
+        '数値_数量':         { type: 'NUMBER',           value: null },
         '文字列__1行_商品名':   { type: 'SINGLE_LINE_TEXT', value: '' },
         '数値_単価':         { type: 'NUMBER',           value: null },
         '文字列__1行__単位':   { type: 'SINGLE_LINE_TEXT', value: '' },
@@ -121,7 +125,9 @@
     kintone.app.record.set(currentRecord);
   };
 
+  // =================================================================
   // --- kintone イベントハンドラ ---
+  // =================================================================
   const events = [
     'app.record.create.show',
     'app.record.edit.show',
@@ -130,7 +136,7 @@
   ];
 
   kintone.events.on(events, (event) => {
-    showHistoryList();
+    showHistoryList(event.record);
     return event;
   });
 
