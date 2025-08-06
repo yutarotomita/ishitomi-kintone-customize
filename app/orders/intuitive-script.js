@@ -1,63 +1,46 @@
 (function() {
   'use strict';
 
-  // =================================================================
   // --- 設定項目 ---
-  // =================================================================
-
-  const HISTORY_APP_ID = 5; // 履歴を検索するアプリ（受注アプリ自身）のID
-  const CUSTOMER_FIELD = 'ルックアップ_取引名'; // 履歴検索に使う取引先名フィールド
-  const SUBTABLE_CODE = 'テーブル'; // 追加対象のサブテーブル
-  const DISPLAY_SPACE_ID = 'history_display_space'; // 履歴表示用のスペース
-
-  // ★★★ ルックアップによって値がコピーされる、監視対象のフィールド ★★★
+  const HISTORY_APP_ID = 5;
+  const CUSTOMER_FIELD = 'ルックアップ_取引名';
+  const SUBTABLE_CODE = 'テーブル';
   const TRIGGER_FIELD = '数値_シール発行有無';
-
-  // =================================================================
-  // --- 関数定義 ---
-  // =================================================================
+  const CAROUSEL_SPACE_ID = 'history_display_space'; // カルーセルを表示するスペースの要素ID
 
   /**
-   * 履歴を取得してスペースに表示するメインの関数
+   * 履歴を取得してカルーセルを生成するメインの関数
    */
-  const showHistoryList = (record) => {
+  const showHistoryCarousel = (record) => {
     const customerName = record[CUSTOMER_FIELD].value;
-    const displaySpaceEl = kintone.app.record.getSpaceElement(DISPLAY_SPACE_ID);
+    const spaceEl = kintone.app.record.getSpaceElement(CAROUSEL_SPACE_ID);
 
-    if (!displaySpaceEl) {
-      return;
-    }
-
+    if (!spaceEl) return;
     if (!customerName) {
-      displaySpaceEl.innerHTML = '';
+      spaceEl.innerHTML = ''; // 取引先がなければクリア
       return;
     }
     
-    displaySpaceEl.innerHTML = '履歴を検索中...';
-
-    const query = `${CUSTOMER_FIELD} = "${customerName}" order by 作成日時 desc limit 50`;
+    spaceEl.innerHTML = '履歴を検索中...';
 
     kintone.api(kintone.api.url('/k/v1/records', true), 'GET', {
       app: HISTORY_APP_ID,
-      query: query,
+      query: `${CUSTOMER_FIELD} = "${customerName}" order by 作成日時 desc limit 50`,
     }).then(resp => {
-      const uniqueProductHistory = processHistoryData(resp.records);
-      renderHistoryList(uniqueProductHistory, displaySpaceEl);
+      const history = processHistoryData(resp.records);
+      buildAndShowCarousel(history, spaceEl);
     }).catch(err => {
-      console.error('履歴取得エラー:', err);
-      displaySpaceEl.innerHTML = '<span style="color:red;">履歴の取得中にエラーが発生しました。</span>';
+      console.error(err);
+      spaceEl.innerHTML = '<span style="color:red;">履歴の取得中にエラーが発生しました。</span>';
     });
   };
 
-  /**
-   * APIで取得したレコードから、重複を除いた最新の商品リストを作成する
-   */
   const processHistoryData = (records) => {
     const productMap = new Map();
     records.forEach(record => {
       if (!record[SUBTABLE_CODE] || !record[SUBTABLE_CODE].value) return;
-      record[SUBTABLE_CODE].value.forEach(subtableRow => {
-        const item = subtableRow.value;
+      record[SUBTABLE_CODE].value.forEach(row => {
+        const item = row.value;
         const productCode = item.ルックアップ_商品番号.value;
         if (productCode && !productMap.has(productCode)) {
           productMap.set(productCode, {
@@ -69,78 +52,116 @@
     });
     return Array.from(productMap.values());
   };
-  
+
   /**
-   * 履歴リストをHTMLとして組み立て、スペースに表示する
+   * カルーセルのUIを組み立てて表示する
    */
-  const renderHistoryList = (historyData, spaceElement) => {
-    if (historyData.length === 0) {
-      spaceElement.innerHTML = '<span>この取引先の受注履歴はありません。</span>';
-      return;
+  const buildAndShowCarousel = (historyData, spaceElement) => {
+    // カルーセルのカードHTMLを生成
+    let cardsHtml = '';
+    if (historyData.length > 0) {
+      historyData.forEach(item => {
+        cardsHtml += `
+          <div class="history-product-card" data-product-code="${item.productCode}">
+            <div class="product-name">${item.productName}</div>
+            <div class="product-code">商品番号: ${item.productCode}</div>
+          </div>
+        `;
+      });
+    } else {
+      cardsHtml = '<p style="text-align:center; width:100%; color:#777;">この取引先の受注履歴はありません。</p>';
     }
+
+    // ダイアログ全体のHTML
+    const carouselHtml = `
+      <div class="history-carousel-container">
+        <div class="history-carousel-header">受注履歴から商品を選択</div>
+        <div class="history-carousel-viewport">
+          <div class="history-carousel-track">${cardsHtml}</div>
+        </div>
+        <button class="carousel-nav-btn prev" style="display:none;">&lt;</button>
+        <button class="carousel-nav-btn next">&gt;</button>
+      </div>
+    `;
+
+    spaceElement.innerHTML = carouselHtml;
     
-    let listHtml = '<div style="border: 1px solid #e3e3e3; padding: 10px; margin-top: 10px; max-height: 200px; overflow-y: auto;">';
-    listHtml += '<strong>クリックして商品を追加:</strong><ul style="margin-top: 5px; padding-left: 20px;">';
+    // --- カルーセル操作のロジック ---
+    const track = spaceElement.querySelector('.history-carousel-track');
+    const cards = spaceElement.querySelectorAll('.history-product-card');
+    const prevBtn = spaceElement.querySelector('.prev');
+    const nextBtn = spaceElement.querySelector('.next');
+    
+    if (cards.length === 0) {
+        prevBtn.style.display = 'none';
+        nextBtn.style.display = 'none';
+        return;
+    }
 
-    historyData.forEach(item => {
-      listHtml += `
-        <li style="margin-bottom: 5px;">
-          <a href="#" class="history-item-selector" data-product-code="${item.productCode}">
-            ${item.productName} (商品番号: ${item.productCode})
-          </a>
-        </li>
-      `;
-    });
+    const cardWidth = 150 + 20; // カード幅150px + margin 20px
+    let currentIndex = 0;
 
-    listHtml += '</ul></div>';
-    spaceElement.innerHTML = listHtml;
+    const updateNavButtons = () => {
+      prevBtn.style.display = currentIndex > 0 ? 'block' : 'none';
+      nextBtn.style.display = currentIndex < cards.length - 1 ? 'block' : 'none';
+    };
 
-    spaceElement.querySelectorAll('.history-item-selector').forEach(el => {
-      el.onclick = (e) => {
-        e.preventDefault();
-        addItemToSubtable(e.target.dataset.productCode);
-      };
-    });
-  };
-
-  /**
-   * 選択した商品をサブテーブルに新しい行として追加し、ルックアップを自動実行させる
-   */
-  const addItemToSubtable = (productCode) => {
-    const currentRecord = kintone.app.record.get();
-    const subtable = currentRecord.record[SUBTABLE_CODE].value;
-
-    const newRow = {
-      value: {
-        'ルックアップ_商品番号': { type: 'NUMBER', value: productCode, lookup: true },
-        '数値_数量':         { type: 'NUMBER',           value: null },
-        '文字列__1行_商品名':   { type: 'SINGLE_LINE_TEXT', value: '' },
-        '数値_単価':         { type: 'NUMBER',           value: null },
-        '文字列__1行__単位':   { type: 'SINGLE_LINE_TEXT', value: '' },
-        '金額':            { type: 'CALC',             value: null },
-        '文字列__1行_摘要':   { type: 'SINGLE_LINE_TEXT', value: '' },
-        'ルックアップ_単価ID': { type: 'NUMBER',           value: null },
-        '文字列__1行__0':      { type: 'SINGLE_LINE_TEXT', value: '' }
+    const updatePosition = () => {
+      track.style.transform = `translateX(-${currentIndex * cardWidth}px)`;
+      updateNavButtons();
+    };
+    
+    nextBtn.onclick = () => {
+      if (currentIndex < cards.length - 1) {
+        currentIndex++;
+        updatePosition();
+      }
+    };
+    
+    prevBtn.onclick = () => {
+      if (currentIndex > 0) {
+        currentIndex--;
+        updatePosition();
       }
     };
 
+    cards.forEach(card => {
+      card.onclick = e => addItemToSubtable(e.currentTarget.dataset.productCode);
+    });
+    
+    updateNavButtons(); // 初期状態のボタン表示を更新
+  };
+
+  const addItemToSubtable = (productCode) => {
+    const currentRecord = kintone.app.record.get();
+    const subtable = currentRecord.record[SUBTABLE_CODE].value;
+    const newRow = {
+      value: {
+        'ルックアップ_商品番号': { type: 'NUMBER', value: productCode, lookup: true },
+        '数値_数量': { type: 'NUMBER', value: null },
+        '文字列__1行_商品名':   { type: 'SINGLE_LINE_TEXT', value: '' },
+        '数値_単価': { type: 'NUMBER', value: null },
+        '文字列__1行__単位': { type: 'SINGLE_LINE_TEXT', value: '' },
+        '金額': { type: 'CALC', value: null },
+        '文字列__1行_摘要': { type: 'SINGLE_LINE_TEXT', value: '' },
+        'ルックアップ_単価ID': { type: 'NUMBER', value: null },
+        '文字列__1行__0': { type: 'SINGLE_LINE_TEXT', value: '' }
+      }
+    };
     subtable.push(newRow);
     kintone.app.record.set(currentRecord);
   };
 
-  // =================================================================
   // --- kintone イベントハンドラ ---
-  // =================================================================
   const events = [
     'app.record.create.show',
     'app.record.edit.show',
-    'app.record.create.change.' + TRIGGER_FIELD, // ★★★ トリガーをこのフィールドに変更 ★★★
-    'app.record.edit.change.' + TRIGGER_FIELD   // ★★★ トリガーをこのフィールドに変更 ★★★
+    'app.record.create.change.' + TRIGGER_FIELD,
+    'app.record.edit.change.' + TRIGGER_FIELD
   ];
 
   kintone.events.on(events, (event) => {
-    // 画面表示時、またはトリガーフィールド変更時に履歴を表示
-    showHistoryList(event.record);
+    showHistoryCarousel(event.record);
     return event;
   });
 
