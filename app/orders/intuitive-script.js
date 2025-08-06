@@ -149,11 +149,13 @@
 
       // 追加した行のルックアップフィールドに値をセット
       targetRow.value['ルックアップ_商品番号'].value = productCode;
+      // ルックアップを実行するために、ルックアップフィールドのloolupプロパティをtrueに設定
+      targetRow.value['ルックアップ_商品番号'].lookup = true;
       
       // 数量の初期値を1に設定
-      targetRow.value['数値_数量'].value = '1';
+      targetRow.value['数値_数量'].value = '';
 
-      // 再度レコードをセットすることで、ルックアップが実行される
+      // 再度レコードをセットする
       kintone.app.record.set(updatedRecord);
     }, 100);
   };
