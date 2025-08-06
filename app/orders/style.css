@@ -20,7 +20,7 @@
 .history-carousel-viewport {
   width: 100%;
   overflow: hidden;
-  padding: 40px 0 10px; /* 上にヘッダー分の余白、下に少し余白 */
+  padding: 40px 0 0px; /* 上にヘッダー分の余白、下に少し余白 */
 }
 
 .history-carousel-track {
@@ -33,7 +33,6 @@
 .history-product-card {
   flex: 0 0 150px; /* カードの幅を固定 */
   width: 150px;
-  height: 100px;
   margin: 0 10px;
   border: 1px solid #ddd;
   border-radius: 8px;
