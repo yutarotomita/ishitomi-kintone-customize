@@ -156,7 +156,7 @@
     const subtable = currentRecord.record[SUBTABLE_CODE].value;
     const newRow = {
       value: {
-        'ルックアップ_商品番号': { type: 'NUMBER', value: itemData.productCode },
+        'ルックアップ_商品番号': { type: 'NUMBER', value: itemData.productCode, lookup: true },
         '文字列__1行_商品名':   { type: 'SINGLE_LINE_TEXT', value: itemData.productName },
         '数値_単価':         { type: 'NUMBER', value: itemData.price },
         'ルックアップ_単価ID': { type: 'NUMBER', value: itemData.priceId },
