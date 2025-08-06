@@ -113,68 +113,49 @@
     });
   };
 
-  /**
-   * 選択した商品をサブテーブルに新しい行として追加する
-   * ★★★ この関数を【最終版】として、まるごと置き換えてください ★★★
+/**
+   * 選択した商品をサブテーブルに新しい行として追加し、ルックアップを自動実行させる
+   * ★★★ この関数をまるごと置き換えてください ★★★
    */
   const addItemToSubtable = (productCode) => {
     const currentRecord = kintone.app.record.get();
     const subtable = currentRecord.record[SUBTABLE_CODE].value;
+    const newRowIndex = subtable.length; // これから追加する行のインデックス
 
-    // 新しい行のデータを作成
-    // スキーマに基づき、全てのフィールドに「type」と「value」を定義する
+    // まず、全てのフィールドが空の行データを作成
     const newRow = {
-      // 新しい行の場合、id は null または未定義
-      // id: null,
       value: {
-        // --- ルックアップのトリガーとなるフィールド ---
-        'ルックアップ_商品番号': {
-          type: 'NUMBER', // スキーマ上の型
-          value: productCode
-        },
-        '数値_数量': {
-          type: 'NUMBER',
-          value: '1' // デフォルト値
-        },
-
-        // --- ルックアップによって自動入力されるフィールド ---
-        '文字列__1行_商品名': {
-          type: 'SINGLE_LINE_TEXT',
-          value: '' // ルックアップで上書きされる
-        },
-        '数値_単価': {
-          type: 'NUMBER',
-          value: null // ルックアップで上書きされる
-        },
-        '文字列__1行__単位': {
-          type: 'SINGLE_LINE_TEXT',
-          value: '' // ルックアップで上書きされる
-        },
-        
-        // --- 計算フィールド ---
-        '金額': {
-          type: 'CALC',
-          value: null // 計算結果で上書きされる
-        },
-
-        // --- その他の空のフィールド ---
-        '文字列__1行_摘要': {
-          type: 'SINGLE_LINE_TEXT',
-          value: ''
-        },
-        'ルックアップ_単価ID': {
-          type: 'NUMBER',
-          value: null
-        },
-        '文字列__1行__0': { // 内部メモ
-          type: 'SINGLE_LINE_TEXT',
-          value: ''
-        }
+        'ルックアップ_商品番号': { type: 'NUMBER', value: null },
+        '数値_数量': { type: 'NUMBER', value: null },
+        '文字列__1行_商品名': { type: 'SINGLE_LINE_TEXT', value: '' },
+        '数値_単価': { type: 'NUMBER', value: null },
+        '文字列__1行__単位': { type: 'SINGLE_LINE_TEXT', value: '' },
+        '金額': { type: 'CALC', value: null },
+        '文字列__1行_摘要': { type: 'SINGLE_LINE_TEXT', value: '' },
+        'ルックアップ_単価ID': { type: 'NUMBER', value: null },
+        '文字列__1行__0': { type: 'SINGLE_LINE_TEXT', value: '' }
       }
     };
-
+    
+    // 1. まず空の行を追加する
     subtable.push(newRow);
     kintone.app.record.set(currentRecord);
+
+    // 2. 0.1秒待ってから、追加した行に値をセットし、再度レコードを更新する
+    //    この「間」を設けることで、kintoneがルックアップの実行を認識しやすくなる
+    setTimeout(() => {
+      const updatedRecord = kintone.app.record.get();
+      const targetRow = updatedRecord.record[SUBTABLE_CODE].value[newRowIndex];
+
+      // 追加した行のルックアップフィールドに値をセット
+      targetRow.value['ルックアップ_商品番号'].value = productCode;
+      
+      // 数量の初期値を1に設定
+      targetRow.value['数値_数量'].value = '1';
+
+      // 再度レコードをセットすることで、ルックアップが実行される
+      kintone.app.record.set(updatedRecord);
+    }, 100);
   };
 
   // --- kintone イベントハンドラ ---
