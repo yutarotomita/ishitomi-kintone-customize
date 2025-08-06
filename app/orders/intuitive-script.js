@@ -6,7 +6,7 @@
   const CUSTOMER_FIELD = 'ルックアップ_取引名';
   const SUBTABLE_CODE = 'テーブル';
   const TRIGGER_FIELD = '数値_シール発行有無';
-  const CAROUSEL_SPACE_ID = 'history_display_space'; // カルーセルを表示するスペースの要素ID
+  const CAROUSEL_SPACE_ID = 'history_display_space';
 
   /**
    * 履歴を取得してカルーセルを生成するメインの関数
@@ -17,7 +17,7 @@
 
     if (!spaceEl) return;
     if (!customerName) {
-      spaceEl.innerHTML = ''; // 取引先がなければクリア
+      spaceEl.innerHTML = '';
       return;
     }
     
@@ -35,6 +35,10 @@
     });
   };
 
+  /**
+   * APIで取得したレコードから、重複を除いた最新の商品リストを作成する
+   * ★★★ 変更点：単価と単価IDも保持するように修正 ★★★
+   */
   const processHistoryData = (records) => {
     const productMap = new Map();
     records.forEach(record => {
@@ -46,6 +50,8 @@
           productMap.set(productCode, {
             productCode: productCode,
             productName: item.文字列__1行_商品名.value,
+            price: item.数値_単価.value, // 単価を保持
+            priceId: item.ルックアップ_単価ID.value // 単価IDを保持
           });
         }
       });
@@ -53,18 +59,28 @@
     return Array.from(productMap.values());
   };
 
-  /**
+/**
    * カルーセルのUIを組み立てて表示する
+   * ★★★ この関数をまるごと置き換えてください ★★★
    */
   const buildAndShowCarousel = (historyData, spaceElement) => {
     // カルーセルのカードHTMLを生成
     let cardsHtml = '';
     if (historyData.length > 0) {
       historyData.forEach(item => {
+        // 金額をフォーマット（例: 1000 -> 1,000）
+        const formattedPrice = Number(item.price || 0).toLocaleString();
+
         cardsHtml += `
-          <div class="history-product-card" data-product-code="${item.productCode}">
+          <div class="history-product-card" 
+            data-product-code="${item.productCode}" 
+            data-product-name="${item.productName}"
+            data-price="${item.price || ''}"
+            data-price-id="${item.priceId || ''}"
+          >
             <div class="product-name">${item.productName}</div>
             <div class="product-code">商品番号: ${item.productCode}</div>
+            <div class="product-price">¥ ${formattedPrice}</div>
           </div>
         `;
       });
@@ -72,7 +88,7 @@
       cardsHtml = '<p style="text-align:center; width:100%; color:#777;">この取引先の受注履歴はありません。</p>';
     }
 
-    // ダイアログ全体のHTML
+    // (以降の処理は変更ありません)
     const carouselHtml = `
       <div class="history-carousel-container">
         <div class="history-carousel-header">受注履歴から商品を選択</div>
@@ -86,7 +102,6 @@
 
     spaceElement.innerHTML = carouselHtml;
     
-    // --- カルーセル操作のロジック ---
     const track = spaceElement.querySelector('.history-carousel-track');
     const cards = spaceElement.querySelectorAll('.history-product-card');
     const prevBtn = spaceElement.querySelector('.prev');
@@ -126,26 +141,31 @@
     };
 
     cards.forEach(card => {
-      card.onclick = e => addItemToSubtable(e.currentTarget.dataset.productCode);
+      card.onclick = e => addItemToSubtable(e.currentTarget.dataset);
     });
     
-    updateNavButtons(); // 初期状態のボタン表示を更新
+    updateNavButtons();
   };
 
-  const addItemToSubtable = (productCode) => {
+  /**
+   * 選択した商品をサブテーブルに新しい行として追加する
+   * ★★★ 変更点：単価と単価IDもセットするように修正 ★★★
+   */
+  const addItemToSubtable = (itemData) => {
     const currentRecord = kintone.app.record.get();
     const subtable = currentRecord.record[SUBTABLE_CODE].value;
     const newRow = {
       value: {
-        'ルックアップ_商品番号': { type: 'NUMBER', value: productCode, lookup: true },
-        '数値_数量': { type: 'NUMBER', value: null },
-        '文字列__1行_商品名':   { type: 'SINGLE_LINE_TEXT', value: '' },
-        '数値_単価': { type: 'NUMBER', value: null },
-        '文字列__1行__単位': { type: 'SINGLE_LINE_TEXT', value: '' },
-        '金額': { type: 'CALC', value: null },
-        '文字列__1行_摘要': { type: 'SINGLE_LINE_TEXT', value: '' },
-        'ルックアップ_単価ID': { type: 'NUMBER', value: null },
-        '文字列__1行__0': { type: 'SINGLE_LINE_TEXT', value: '' }
+        'ルックアップ_商品番号': { type: 'NUMBER', value: itemData.productCode },
+        '文字列__1行_商品名':   { type: 'SINGLE_LINE_TEXT', value: itemData.productName },
+        '数値_単価':         { type: 'NUMBER', value: itemData.price },
+        'ルックアップ_単価ID': { type: 'NUMBER', value: itemData.priceId },
+        // --- その他のフィールド ---
+        '数値_数量':         { type: 'NUMBER', value: null },
+        '文字列__1行__単位':   { type: 'SINGLE_LINE_TEXT', value: '' },
+        '金額':            { type: 'CALC', value: null },
+        '文字列__1行_摘要':   { type: 'SINGLE_LINE_TEXT', value: '' },
+        '文字列__1行__0':      { type: 'SINGLE_LINE_TEXT', value: '' }
       }
     };
     subtable.push(newRow);

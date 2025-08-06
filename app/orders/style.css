@@ -87,3 +87,11 @@
 .carousel-nav-btn.next {
   right: 15px;
 }
+
+/* カルーセルカード内の価格表示スタイル */
+.history-product-card .product-price {
+  font-size: 14px;
+  color: #e74c3c; /* 価格が目立つように赤系の色に */
+  font-weight: bold;
+  margin-top: 8px;
+}
