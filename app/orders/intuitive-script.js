@@ -6,9 +6,12 @@
   // =================================================================
 
   const HISTORY_APP_ID = 5; // 履歴を検索するアプリ（受注アプリ自身）のID
-  const CUSTOMER_FIELD = 'ルックアップ_取引名'; // 取引先名フィールドのコード
-  const SUBTABLE_CODE = 'テーブル'; // 追加対象のサブテーブルのコード
-  const DISPLAY_SPACE_ID = 'history_display_space'; // 履歴表示用のスペースの要素ID
+  const CUSTOMER_FIELD = 'ルックアップ_取引名'; // 履歴検索に使う取引先名フィールド
+  const SUBTABLE_CODE = 'テーブル'; // 追加対象のサブテーブル
+  const DISPLAY_SPACE_ID = 'history_display_space'; // 履歴表示用のスペース
+
+  // ★★★ ルックアップによって値がコピーされる、監視対象のフィールド ★★★
+  const TRIGGER_FIELD = '数値_シール発行有無';
 
   // =================================================================
   // --- 関数定義 ---
@@ -22,7 +25,7 @@
     const displaySpaceEl = kintone.app.record.getSpaceElement(DISPLAY_SPACE_ID);
 
     if (!displaySpaceEl) {
-      return; 
+      return;
     }
 
     if (!customerName) {
@@ -41,7 +44,7 @@
       const uniqueProductHistory = processHistoryData(resp.records);
       renderHistoryList(uniqueProductHistory, displaySpaceEl);
     }).catch(err => {
-      console.error(err);
+      console.error('履歴取得エラー:', err);
       displaySpaceEl.innerHTML = '<span style="color:red;">履歴の取得中にエラーが発生しました。</span>';
     });
   };
@@ -131,11 +134,12 @@
   const events = [
     'app.record.create.show',
     'app.record.edit.show',
-    'app.record.create.change.' + CUSTOMER_FIELD,
-    'app.record.edit.change.' + CUSTOMER_FIELD
+    'app.record.create.change.' + TRIGGER_FIELD, // ★★★ トリガーをこのフィールドに変更 ★★★
+    'app.record.edit.change.' + TRIGGER_FIELD   // ★★★ トリガーをこのフィールドに変更 ★★★
   ];
 
   kintone.events.on(events, (event) => {
+    // 画面表示時、またはトリガーフィールド変更時に履歴を表示
     showHistoryList(event.record);
     return event;
   });
