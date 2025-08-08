@@ -10,10 +10,8 @@
   /**
    * 次の納品書番号を取得・設定する関数
    */
-  const setNextInvoiceNumber = () => {
-    // ★★★ 修正点1：関数内で現在のレコード情報を取得するように変更 ★★★
-    const record = kintone.app.record.get().record;
-    const customerName = record[CUSTOMER_FIELD].value;
+  const setNextInvoiceNumber = (customerName) => {
+    // ★★★ 修正点1：引数でcustomerNameを受け取るように変更 ★★★
 
     // 取引先が選択されていなければ納品書番号をクリアする
     if (!customerName) {
@@ -40,7 +38,7 @@
         }
       }
 
-      // ★★★ 修正点2：非同期処理の完了後に kintone.app.record.set() を使って値をセットする ★★★
+      // 非同期処理の完了後に kintone.app.record.set() を使って値をセットする
       const currentRecordToSet = kintone.app.record.get();
       currentRecordToSet.record[INVOICE_NUMBER_FIELD].value = nextNumber;
       kintone.app.record.set(currentRecordToSet);
@@ -61,17 +59,20 @@
   kintone.events.on(events, (event) => {
     const record = event.record;
 
-    // ★★★ 修正点3：フィールドの非活性化は、イベント内で同期的に行う ★★★
+    // フィールドの非活性化は、イベント内で同期的に行う
     record[INVOICE_NUMBER_FIELD].disabled = true;
     
+    // ★★★ 修正点2：関数に取引先名を渡すように変更 ★★★
+    const customerName = record[CUSTOMER_FIELD].value;
+
     // 値のセットは非同期で行う関数を呼び出す
     if (event.type.endsWith('.show')) {
-      if (record[CUSTOMER_FIELD].value) {
-        setNextInvoiceNumber();
+      if (customerName) {
+        setNextInvoiceNumber(customerName);
       }
     } else {
       // トリガーフィールド変更時(.change)の処理
-      setNextInvoiceNumber();
+      setNextInvoiceNumber(customerName);
     }
     
     return event;
