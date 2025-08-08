@@ -51,9 +51,7 @@
   // --- kintone イベントハンドラ ---
   const events = [
     'app.record.create.show',
-    'app.record.edit.show',
-    'app.record.create.change.' + TRIGGER_FIELD,
-    'app.record.edit.change.' + TRIGGER_FIELD
+    'app.record.create.change.' + TRIGGER_FIELD
   ];
 
   kintone.events.on(events, (event) => {
