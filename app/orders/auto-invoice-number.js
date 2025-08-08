@@ -5,20 +5,21 @@
   const APP_ID = 5; // このアプリ自身のID
   const CUSTOMER_FIELD = 'ルックアップ_取引名'; // 取引先名フィールド
   const INVOICE_NUMBER_FIELD = '数値_納品書番号'; // 納品書番号フィールド
-
-  // ★★★ ルックアップによって値がコピーされる、監視対象のフィールド ★★★
-  // (以前の履歴表示機能とトリガーを合わせるのが確実です)
-  const TRIGGER_FIELD = '数値_シール発行有無'; 
+  const TRIGGER_FIELD = '数値_シール発行有無'; // ルックアップによって値がコピーされる、監視対象のフィールド
 
   /**
    * 次の納品書番号を取得・設定する関数
    */
-  const setNextInvoiceNumber = (record) => {
+  const setNextInvoiceNumber = () => {
+    // ★★★ 修正点1：関数内で現在のレコード情報を取得するように変更 ★★★
+    const record = kintone.app.record.get().record;
     const customerName = record[CUSTOMER_FIELD].value;
 
     // 取引先が選択されていなければ納品書番号をクリアする
     if (!customerName) {
-      record[INVOICE_NUMBER_FIELD].value = '';
+      const currentRecordToSet = kintone.app.record.get();
+      currentRecordToSet.record[INVOICE_NUMBER_FIELD].value = '';
+      kintone.app.record.set(currentRecordToSet);
       return;
     }
 
@@ -32,7 +33,6 @@
     }).then(resp => {
       let nextNumber = 1; // デフォルトの初期値
       
-      // 履歴が見つかった場合
       if (resp.records.length > 0) {
         const latestNumber = Number(resp.records[0][INVOICE_NUMBER_FIELD].value);
         if (!isNaN(latestNumber)) {
@@ -40,12 +40,13 @@
         }
       }
 
-      // 取得した次の番号をフィールドにセット
-      record[INVOICE_NUMBER_FIELD].value = nextNumber;
+      // ★★★ 修正点2：非同期処理の完了後に kintone.app.record.set() を使って値をセットする ★★★
+      const currentRecordToSet = kintone.app.record.get();
+      currentRecordToSet.record[INVOICE_NUMBER_FIELD].value = nextNumber;
+      kintone.app.record.set(currentRecordToSet);
 
     }).catch(err => {
       console.error('納品書番号の取得エラー:', err);
-      // エラーが発生しても、フィールドは非活性のまま何もしない
     });
   };
 
@@ -60,18 +61,17 @@
   kintone.events.on(events, (event) => {
     const record = event.record;
 
-    // 画面表示時(.show)の処理
+    // ★★★ 修正点3：フィールドの非活性化は、イベント内で同期的に行う ★★★
+    record[INVOICE_NUMBER_FIELD].disabled = true;
+    
+    // 値のセットは非同期で行う関数を呼び出す
     if (event.type.endsWith('.show')) {
-      // ★★★ 画面表示時に常にフィールドを非活性化 ★★★
-      record[INVOICE_NUMBER_FIELD].disabled = true;
-      
-      // 既に取引先が選択されている場合は、次の番号を取得する
       if (record[CUSTOMER_FIELD].value) {
-        setNextInvoiceNumber(record);
+        setNextInvoiceNumber();
       }
     } else {
       // トリガーフィールド変更時(.change)の処理
-      setNextInvoiceNumber(record);
+      setNextInvoiceNumber();
     }
     
     return event;
