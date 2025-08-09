@@ -75,8 +75,8 @@
       return event;
     }
 
-    // 自分以外の、同じ組み合わせで初期値になっているレコードを探す
-    const query = `${CUSTOMER_FIELD} = "${customerName}" and ${PRODUCT_FIELD} = "${productName}" and ${DEFAULT_FLAG_FIELD} = "TRUE" and レコード番号 != ${savedRecordId}`;
+    // ★★★ 修正点：ドロップダウンのクエリを "=" から "in" に変更 ★★★
+    const query = `${CUSTOMER_FIELD} = "${customerName}" and ${PRODUCT_FIELD} = "${productName}" and ${DEFAULT_FLAG_FIELD} in ("TRUE") and レコード番号 != ${savedRecordId}`;
 
     return kintone.api(kintone.api.url('/k/v1/records', true), 'GET', {
       app: APP_ID,
