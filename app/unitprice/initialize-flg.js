@@ -37,11 +37,17 @@
     }).then(resp => {
       const otherDefaults = resp.records.filter(r => r[DEFAULT_FLAG_FIELD].value === 'TRUE');
 
+      // ★★★ 修正箇所 ★★★
       // ケース1: 他にレコードが存在しない、または他のレコードに初期値フラグがない場合
-      // このレコードを強制的に初期値にする
+      // 初期値にするかユーザーに確認する
       if (resp.records.length === 0 || otherDefaults.length === 0) {
-        record[DEFAULT_FLAG_FIELD].value = 'TRUE';
-        return event;
+        const confirmed = confirm('同じ取引先の商品に、初期単価が設定されていません。この単価を初期値にしてよろしいでしょうか？');
+        if (confirmed) {
+          record[DEFAULT_FLAG_FIELD].value = 'TRUE';
+          return event; // OKなら保存
+        } else {
+          return false; // キャンセルなら保存中止
+        }
       }
 
       // ケース2: 他に初期値が存在し、かつこのレコードも初期値にしようとしている場合
@@ -75,7 +81,7 @@
       return event;
     }
 
-    // ★★★ 修正点：ドロップダウンのクエリを "=" から "in" に変更 ★★★
+    // 自分以外の、同じ組み合わせで初期値になっているレコードを探す
     const query = `${CUSTOMER_FIELD} = "${customerName}" and ${PRODUCT_FIELD} = "${productName}" and ${DEFAULT_FLAG_FIELD} in ("TRUE") and レコード番号 != ${savedRecordId}`;
 
     return kintone.api(kintone.api.url('/k/v1/records', true), 'GET', {
