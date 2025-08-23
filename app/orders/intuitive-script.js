@@ -164,8 +164,7 @@
         '数値_数量':         { type: 'NUMBER', value: null },
         '文字列__1行__単位':   { type: 'SINGLE_LINE_TEXT', value: '' },
         '金額':            { type: 'CALC', value: null },
-        '文字列__1行_摘要':   { type: 'SINGLE_LINE_TEXT', value: '' },
-        '文字列__1行__0':      { type: 'SINGLE_LINE_TEXT', value: '' }
+        '文字列__1行_摘要':   { type: 'SINGLE_LINE_TEXT', value: '' }
       }
     };
     subtable.push(newRow);
