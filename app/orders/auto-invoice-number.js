@@ -2,7 +2,7 @@
   'use strict';
 
   // --- 設定項目 ---
-  const APP_ID = 5; // このアプリ自身のID
+  const APP_ID = kintone.app.getId(); // このアプリ自身のID
   const CUSTOMER_FIELD = 'ルックアップ_取引名'; // 取引先名フィールド
   const INVOICE_NUMBER_FIELD = '数値_納品書番号'; // 納品書番号フィールド
   const TRIGGER_FIELD = '数値_シール発行有無'; // ルックアップによって値がコピーされる、監視対象のフィールド
