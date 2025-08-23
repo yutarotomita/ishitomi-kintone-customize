@@ -1,4 +1,4 @@
-(function() {
+(async function() {
   'use strict';
 
   // --- 設定項目 ---
