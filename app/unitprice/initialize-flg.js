@@ -2,7 +2,7 @@
   'use strict';
 
   // --- 設定項目 ---
-  const APP_ID = 7; // この単価マスタアプリ自身のID
+  const APP_ID = kintone.app.getId(); // この単価マスタアプリ自身のID
   const CUSTOMER_FIELD = 'ルックアップ_取引先名'; // 取引先名フィールド
   const PRODUCT_FIELD = 'ルックアップ_商品名'; // 商品名フィールド
   const DEFAULT_FLAG_FIELD = 'ドロップダウン_初期値フラグ'; // 初期値フラグのドロップダウン
