@@ -3,7 +3,11 @@
 
   // --- 設定項目 ---
   const LINK_SPACE_ID = 'link_unitprice_add'; // リンクを表示するスペースの要素ID
-  const UNIT_PRICE_APP_PATH = '/k/7/edit'; // 単価マスタの新規登録画面のパス
+  const DEV_UNITPRICE_APP_ID = 7
+  const PROD_UNITPRICE_APP_ID = 17
+  const DOMAIN_OBJ = await kintone.getDomain();
+  const UNITPRICE_APP_ID = DOMAIN_OBJ.subdomain == 'k4lm2zcoq0sy' ? PROD_UNITPRICE_APP_ID : DEV_UNITPRICE_APP_ID;
+  const UNIT_PRICE_APP_PATH = '/k/' + UNITPRICE_APP_ID + '/edit'; // 単価マスタの新規登録画面のパス
 
   /**
    * スペースにリンクを設置する関数
