@@ -2,7 +2,7 @@
   'use strict';
 
   // --- 設定項目 ---
-  const HISTORY_APP_ID = 5;
+  const HISTORY_APP_ID = kintone.app.getId();
   const CUSTOMER_FIELD = 'ルックアップ_取引名';
   const SUBTABLE_CODE = 'テーブル';
   const TRIGGER_FIELD = '数値_シール発行有無';
