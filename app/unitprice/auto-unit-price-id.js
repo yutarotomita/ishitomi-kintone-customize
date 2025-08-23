@@ -2,7 +2,7 @@
   'use strict';
 
   // --- 設定項目 ---
-  const APP_ID = 7; // この単価マスタアプリ自身のID
+  const APP_ID = kintone.app.getId(); // この単価マスタアプリ自身のID
   const UNIT_PRICE_ID_FIELD = '数値_単価ID'; // 単価IDフィールドのコード
 
   // --- kintone イベントハンドラ ---
