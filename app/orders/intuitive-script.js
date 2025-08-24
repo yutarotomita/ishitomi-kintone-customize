@@ -5,7 +5,7 @@
   const HISTORY_APP_ID = kintone.app.getId();
   const CUSTOMER_FIELD = 'ルックアップ_取引名';
   const SUBTABLE_CODE = 'テーブル';
-  const TRIGGER_FIELD = '数値_シール発行有無';
+  const TRIGGER_FIELD = '数値_取引先ID';
   const CAROUSEL_SPACE_ID = 'history_display_space';
 
   /**
