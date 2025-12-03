@@ -154,6 +154,12 @@
   const addItemToSubtable = (itemData) => {
     const currentRecord = kintone.app.record.get();
     const subtable = currentRecord.record[SUBTABLE_CODE].value;
+    // サブテーブル内の空行（商品番号が入っていない行）を除外するフィルタリング処理
+    const cleanedSubtable = subtable.filter(row => {
+      const productCode = row.value['ルックアップ_商品番号'].value;
+      // 商品番号が存在し、空文字でない行だけを残す
+      return productCode && productCode !== '';
+    });
     const newRow = {
       value: {
         'ルックアップ_商品番号': { type: 'NUMBER', value: itemData.productCode, lookup: true },
@@ -167,7 +173,11 @@
         '文字列__1行_摘要':   { type: 'SINGLE_LINE_TEXT', value: '' }
       }
     };
-    subtable.push(newRow);
+    // フィルタリング済みの配列に新しい行を追加
+    cleanedSubtable.push(newRow);
+
+    // レコードに反映
+    currentRecord.record[SUBTABLE_CODE].value = cleanedSubtable;
     kintone.app.record.set(currentRecord);
   };
 
